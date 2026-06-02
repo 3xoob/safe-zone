@@ -38,6 +38,42 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - name: Start SonarQube with Docker
+        run: |
+          sudo sysctl -w vm.max_map_count=262144
+          docker compose -f docker-compose.sonar.yml up -d
+
+      - name: Configure SonarQube project
+        run: |
+          for i in $(seq 1 60); do
+            status=$(curl -s --max-time 5 http://localhost:9000/api/system/status | node -e "let s=''; process.stdin.on('data',d=>s+=d); process.stdin.on('end',()=>{try{process.stdout.write(JSON.parse(s).status || '')}catch(e){}})")
+            if [ "$status" = "UP" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          curl -s -f -u admin:admin -X POST \
+            --data-urlencode login=admin \
+            --data-urlencode previousPassword=admin \
+            --data-urlencode password='SafeZoneCi123!' \
+            http://localhost:9000/api/users/change_password >/dev/null
+
+          curl -s -u admin:'SafeZoneCi123!' -X POST \
+            --data-urlencode project=safe-zone-ecommerce \
+            --data-urlencode 'name=Safe Zone E-Commerce Microservices' \
+            http://localhost:9000/api/projects/create >/dev/null || true
+
+          token=$(curl -s -f -u admin:'SafeZoneCi123!' -X POST \
+            --data-urlencode "name=safe-zone-ci-${GITHUB_RUN_ID}" \
+            --data-urlencode type=PROJECT_ANALYSIS_TOKEN \
+            --data-urlencode projectKey=safe-zone-ecommerce \
+            http://localhost:9000/api/user_tokens/generate | node -e "let s=''; process.stdin.on('data',d=>s+=d); process.stdin.on('end',()=>{const data=JSON.parse(s); if(!data.token) process.exit(1); process.stdout.write(data.token)})")
+
+          echo "::add-mask::$token"
+          echo "SONAR_TOKEN=$token" >> "$GITHUB_ENV"
+          echo "SONAR_HOST_URL=http://localhost:9000" >> "$GITHUB_ENV"
+
       - name: Backend tests and coverage
         working-directory: backend
         run: mvn clean verify
@@ -53,12 +89,12 @@ jobs:
       - name: SonarQube scan
         uses: SonarSource/sonarqube-scan-action@v3
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
 
       - name: SonarQube quality gate
         uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 10
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}

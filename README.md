@@ -806,14 +806,16 @@ weekly scheduled scan
 manual workflow_dispatch
 ```
 
-Required GitHub repository secrets:
+The GitHub Actions workflow starts SonarQube with Docker inside the GitHub runner, creates the project, generates a short-lived project analysis token, runs the scan, and checks the quality gate. This makes push and pull request scans self-contained.
+
+Optional GitHub repository secrets for externally hosted SonarQube or self-hosted runners:
 
 ```text
 SONAR_HOST_URL=http://<sonarqube-host>:9000
 SONAR_TOKEN=<SonarQube analysis token>
 ```
 
-The workflow runs backend coverage, frontend coverage, SonarQube analysis, and a quality gate check. Configure branch protection in GitHub so this workflow must pass before pull requests can merge.
+The current workflow does not require those secrets because it provisions SonarQube during the CI run. The workflow runs backend coverage, frontend coverage, SonarQube analysis, and a quality gate check. Configure branch protection in GitHub so this workflow must pass before pull requests can merge.
 
 Recommended branch protection:
 
