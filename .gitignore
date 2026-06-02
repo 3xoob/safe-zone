@@ -19,3 +19,4 @@ uploads/*
 .sonarqube-admin-password
 .jenkins-admin-password
 .jenkins-jwt-secret
+.jenkins-smtp-password
