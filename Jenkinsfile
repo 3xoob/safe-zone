@@ -16,7 +16,7 @@ pipeline {
     string(name: 'FRONTEND_PORT', defaultValue: '4200', description: 'Frontend host port')
     booleanParam(name: 'RUN_BACKEND_TESTS', defaultValue: true, description: 'Run backend tests')
     booleanParam(name: 'RUN_FRONTEND_TESTS', defaultValue: true, description: 'Run frontend tests')
-    string(name: 'SONAR_HOST_URL', defaultValue: 'http://localhost:9000', description: 'SonarQube server URL')
+    string(name: 'SONAR_HOST_URL', defaultValue: 'http://host.docker.internal:9000', description: 'SonarQube server URL reachable from Jenkins')
   }
 
   environment {
@@ -103,18 +103,43 @@ pipeline {
 
     stage('SonarQube Analysis') {
       steps {
-        withSonarQubeEnv('safe-zone-sonarqube') {
-          withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-            sh 'sonar-scanner -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_TOKEN}'
-          }
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+          sh 'sonar-scanner -Dsonar.projectKey=${SONAR_PROJECT_KEY} -Dsonar.host.url=${SONAR_HOST_URL} -Dsonar.token=${SONAR_TOKEN}'
         }
       }
     }
 
     stage('Quality Gate') {
       steps {
-        timeout(time: 10, unit: 'MINUTES') {
-          waitForQualityGate abortPipeline: true
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+          sh '''
+            test -f .scannerwork/report-task.txt
+            ce_task_url=$(grep '^ceTaskUrl=' .scannerwork/report-task.txt | cut -d= -f2-)
+            test -n "$ce_task_url"
+
+            for attempt in $(seq 1 60); do
+              response=$(curl -s -u "${SONAR_TOKEN}:" "$ce_task_url")
+              status=$(printf '%s' "$response" | node -e "let s=''; process.stdin.on('data',d=>s+=d); process.stdin.on('end',()=>{const data=JSON.parse(s); process.stdout.write(data.task.status || '')})")
+
+              if [ "$status" = "SUCCESS" ]; then
+                analysis_id=$(printf '%s' "$response" | node -e "let s=''; process.stdin.on('data',d=>s+=d); process.stdin.on('end',()=>{const data=JSON.parse(s); process.stdout.write(data.task.analysisId || '')})")
+                break
+              fi
+
+              if [ "$status" = "FAILED" ] || [ "$status" = "CANCELED" ]; then
+                printf 'SonarQube analysis task ended with status %s\n' "$status"
+                exit 1
+              fi
+
+              sleep 5
+            done
+
+            test -n "$analysis_id"
+            gate_response=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/qualitygates/project_status?analysisId=${analysis_id}")
+            gate_status=$(printf '%s' "$gate_response" | node -e "let s=''; process.stdin.on('data',d=>s+=d); process.stdin.on('end',()=>{const data=JSON.parse(s); process.stdout.write(data.projectStatus.status || '')})")
+            printf 'SonarQube quality gate: %s\n' "$gate_status"
+            test "$gate_status" = "OK"
+          '''
         }
       }
     }

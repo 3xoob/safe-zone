@@ -17,3 +17,5 @@ uploads/*
 .scannerwork/
 .sonarqube-token
 .sonarqube-admin-password
+.jenkins-admin-password
+.jenkins-jwt-secret

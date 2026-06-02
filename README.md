@@ -761,11 +761,7 @@ Deploy
 Health Check
 ```
 
-Required Jenkins plugin:
-
-```text
-SonarQube Scanner for Jenkins
-```
+The Jenkins pipeline uses the standalone `sonar-scanner` CLI installed in `jenkins/Dockerfile` and polls SonarQube's API for quality gate status. This avoids requiring global SonarQube server configuration in Jenkins.
 
 Required Jenkins credentials:
 
@@ -775,25 +771,9 @@ ID: sonar-token
 Secret: <SonarQube analysis token>
 ```
 
-Configure the SonarQube server in Jenkins:
-
-```text
-Manage Jenkins > System > SonarQube servers
-Name: safe-zone-sonarqube
-Server URL: http://<sonarqube-host>:9000
-Server authentication token: sonar-token
-```
-
 For local Docker-based Jenkins and SonarQube, use a reachable host name or network route. If Jenkins runs in a container and SonarQube runs on the host, `http://host.docker.internal:9000` may be required depending on your Docker platform.
 
-Configure the SonarQube webhook so Jenkins can receive quality gate results:
-
-```text
-SonarQube > Administration > Configuration > Webhooks
-URL: http://<jenkins-host>:8085/sonarqube-webhook/
-```
-
-The Jenkins `Quality Gate` stage uses `waitForQualityGate abortPipeline: true`. If the quality gate fails, the pipeline stops before Docker build and deployment.
+The Jenkins `Quality Gate` stage polls SonarQube and exits with a non-zero status when the quality gate is not `OK`. If the quality gate fails, the pipeline stops before Docker build and deployment.
 
 ### GitHub Integration
 
