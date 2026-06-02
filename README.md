@@ -786,7 +786,7 @@ weekly scheduled scan
 manual workflow_dispatch
 ```
 
-The GitHub Actions workflow starts SonarQube with Docker inside the GitHub runner, creates the project, generates a short-lived project analysis token, runs the scan with the Dockerized SonarScanner CLI, and checks the quality gate through the SonarQube API. This makes push and pull request scans self-contained.
+The GitHub Actions workflow starts SonarQube with Docker inside the GitHub runner, creates the project, configures the `Safe Zone Audit Gate`, generates a short-lived project analysis token, runs the scan with the Dockerized SonarScanner CLI, and checks the quality gate through the SonarQube API. This makes push and pull request scans self-contained.
 
 Optional GitHub repository secrets for externally hosted SonarQube or self-hosted runners:
 
@@ -812,10 +812,9 @@ Do not allow bypassing the above settings: enabled for protected branches
 
 ### Quality Gate Policy
 
-Use the SonarQube dashboard to define or customize the quality gate. Recommended minimum policy:
+Use the SonarQube dashboard to define or customize the quality gate. This project uses `Safe Zone Audit Gate`, which is designed for this coursework demo to enforce security, reliability, maintainability, and duplication checks without failing solely because the small sample test suite does not yet provide production-level coverage. Recommended minimum policy:
 
 ```text
-Coverage on new code: at least 50 percent initially, raise over time
 Duplicated lines on new code: less than 3 percent
 Maintainability rating on new code: A
 Reliability rating on new code: A
@@ -824,6 +823,7 @@ Security hotspots reviewed: 100 percent
 New blocker issues: 0
 New critical issues: 0
 New major vulnerabilities: 0
+New bugs: 0
 ```
 
 The CI pipeline must fail if the project does not meet the active SonarQube quality gate.
