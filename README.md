@@ -475,6 +475,8 @@ Use SMTP Authentication: enabled if required
 Use TLS: enabled if required
 ```
 
+For Gmail, the SMTP password must be a valid Google App Password for `ali.almoumnin@gmail.com`; the normal Google account password will be rejected.
+
 Run a test email from Jenkins after configuring SMTP. Without working SMTP settings, the pipeline can call `mail`, but delivery will fail.
 
 ### Jenkins Job Configuration
