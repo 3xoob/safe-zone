@@ -87,14 +87,39 @@ jobs:
         run: npm run test:coverage
 
       - name: SonarQube scan
-        uses: SonarSource/sonarqube-scan-action@v3
-        env:
-          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+        run: |
+          docker run --rm --network host \
+            -e SONAR_TOKEN="$SONAR_TOKEN" \
+            -v "$PWD:/usr/src" \
+            sonarsource/sonar-scanner-cli \
+            -Dsonar.host.url="$SONAR_HOST_URL"
 
       - name: SonarQube quality gate
-        uses: SonarSource/sonarqube-quality-gate-action@v1
         timeout-minutes: 10
-        env:
-          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+        run: |
+          test -f .scannerwork/report-task.txt
+          ce_task_url=$(grep '^ceTaskUrl=' .scannerwork/report-task.txt | cut -d= -f2-)
+          test -n "$ce_task_url"
+
+          for attempt in $(seq 1 60); do
+            response=$(curl -s -u "${SONAR_TOKEN}:" "$ce_task_url")
+            status=$(printf '%s' "$response" | node -e "let s=''; process.stdin.on('data',d=>s+=d); process.stdin.on('end',()=>{const data=JSON.parse(s); process.stdout.write(data.task.status || '')})")
+
+            if [ "$status" = "SUCCESS" ]; then
+              analysis_id=$(printf '%s' "$response" | node -e "let s=''; process.stdin.on('data',d=>s+=d); process.stdin.on('end',()=>{const data=JSON.parse(s); process.stdout.write(data.task.analysisId || '')})")
+              break
+            fi
+
+            if [ "$status" = "FAILED" ] || [ "$status" = "CANCELED" ]; then
+              printf 'SonarQube analysis task ended with status %s\n' "$status"
+              exit 1
+            fi
+
+            sleep 5
+          done
+
+          test -n "$analysis_id"
+          gate_response=$(curl -s -u "${SONAR_TOKEN}:" "${SONAR_HOST_URL}/api/qualitygates/project_status?analysisId=${analysis_id}")
+          gate_status=$(printf '%s' "$gate_response" | node -e "let s=''; process.stdin.on('data',d=>s+=d); process.stdin.on('end',()=>{const data=JSON.parse(s); process.stdout.write(data.projectStatus.status || '')})")
+          printf 'SonarQube quality gate: %s\n' "$gate_status"
+          test "$gate_status" = "OK"

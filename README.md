@@ -786,7 +786,7 @@ weekly scheduled scan
 manual workflow_dispatch
 ```
 
-The GitHub Actions workflow starts SonarQube with Docker inside the GitHub runner, creates the project, generates a short-lived project analysis token, runs the scan, and checks the quality gate. This makes push and pull request scans self-contained.
+The GitHub Actions workflow starts SonarQube with Docker inside the GitHub runner, creates the project, generates a short-lived project analysis token, runs the scan with the Dockerized SonarScanner CLI, and checks the quality gate through the SonarQube API. This makes push and pull request scans self-contained.
 
 Optional GitHub repository secrets for externally hosted SonarQube or self-hosted runners:
 
