@@ -360,6 +360,30 @@ frontend_products_route HTTP:200
 frontend_api_proxy HTTP:200
 ```
 
+## Audit Evidence
+
+Current verified audit status:
+
+| Area | Status | Evidence |
+| --- | --- | --- |
+| SonarQube Docker analysis | Passed | `http://localhost:9000/dashboard?id=safe-zone-ecommerce` |
+| SonarQube quality gate | Passed | Project key `safe-zone-ecommerce`, gate `Safe Zone Audit Gate` |
+| GitHub Actions quality check | Passed | Required check `SonarQube Quality Gate / Analyze code quality` |
+| Pull request workflow | Passed | `https://github.com/3xoob/safe-zone/pull/1` merged into `main` |
+| Branch protection | Enabled | Pull request review, required status check, strict checks, and admin enforcement enabled |
+| Jenkins pipeline | Passed | Build `#18` completed with `SUCCESS` |
+| Jenkins email notification | Passed | Email subject `Buy-01 SUCCESS: #18` received at `ali.almoumnin@gmail.com` |
+
+Audit URLs:
+
+```text
+SonarQube: http://localhost:9000/dashboard?id=safe-zone-ecommerce
+GitHub PR: https://github.com/3xoob/safe-zone/pull/1
+Jenkins build: https://tame-grapes-give.loca.lt/job/buy01-pipeline/18/
+```
+
+Secrets used for Jenkins, SonarQube, JWT signing, and SMTP are stored in Jenkins credentials or ignored local files. They are not committed to Git.
+
 ## Known Choices
 
 - Kafka is not included because it is optional for this project.
