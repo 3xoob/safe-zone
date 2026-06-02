@@ -1,0 +1,13 @@
+.git
+.agents
+skills-lock.json
+frontend/node_modules
+frontend/dist
+frontend/.angular
+frontend/coverage
+frontend/test-results
+backend/**/target
+uploads/*
+!uploads/.gitkeep
+*.log
+.env

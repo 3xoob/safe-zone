@@ -1,0 +1,97 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: buy01-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  discovery-service:
+    image: buy01-discovery-service:${DEPLOY_TAG:-local}
+    build:
+      context: .
+      dockerfile: backend/discovery-service/Dockerfile
+    ports:
+      - "8761:8761"
+
+  user-service:
+    image: buy01-user-service:${DEPLOY_TAG:-local}
+    build:
+      context: .
+      dockerfile: backend/user-service/Dockerfile
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/users_db
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided}
+      AVATAR_UPLOAD_DIR: /app/uploads/avatars
+    volumes:
+      - avatar-uploads:/app/uploads/avatars
+    depends_on:
+      - mongodb
+      - discovery-service
+
+  product-service:
+    image: buy01-product-service:${DEPLOY_TAG:-local}
+    build:
+      context: .
+      dockerfile: backend/product-service/Dockerfile
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/products_db
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+    depends_on:
+      - mongodb
+      - discovery-service
+
+  media-service:
+    image: buy01-media-service:${DEPLOY_TAG:-local}
+    build:
+      context: .
+      dockerfile: backend/media-service/Dockerfile
+    environment:
+      MONGO_URI: mongodb://mongodb:27017/media_db
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      UPLOAD_DIR: /app/uploads
+      PRODUCT_SERVICE_URL: http://product-service:8082
+    volumes:
+      - media-uploads:/app/uploads
+    depends_on:
+      - mongodb
+      - discovery-service
+
+  gateway-service:
+    image: buy01-gateway-service:${DEPLOY_TAG:-local}
+    build:
+      context: .
+      dockerfile: backend/gateway-service/Dockerfile
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-service:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be provided}
+      ALLOWED_ORIGINS: http://localhost:4200
+    depends_on:
+      - discovery-service
+      - user-service
+      - product-service
+      - media-service
+    ports:
+      - "${GATEWAY_PORT:-8080}:8080"
+
+  frontend:
+    image: buy01-frontend:${DEPLOY_TAG:-local}
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      - gateway-service
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
+
+volumes:
+  mongo-data:
+  avatar-uploads:
+  media-uploads:
